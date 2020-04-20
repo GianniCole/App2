@@ -17,10 +17,6 @@ def get_news(pubblication="bbc"):
     feed = feedparser.parse(RSS_FEEDS[pubblication])
     first_article = feed['entries'][0]
     #passing dunamic data to my tempalte
-    return render_template("index.html", 
-            title=first_article.get("title"),
-            pubblished=first_article.get("pubblished"),
-            summary=first_article.get("summary")
-        )
+    return render_template("index.html", articles=feed['entries'])
 if __name__ == "__main__":
     app.run(port=5000, debug=True)
