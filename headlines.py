@@ -1,6 +1,7 @@
 import feedparser
 from flask import Flask
 from flask import render_template
+from flask import request
 
 app = Flask(__name__)
 RSS_FEEDS = {'bbc': "http://feeds.bbci.co.uk/news/rss.xml",
@@ -9,14 +10,17 @@ RSS_FEEDS = {'bbc': "http://feeds.bbci.co.uk/news/rss.xml",
             'iol': 'http://www.iol.co.za/cmlink/1.640'}
 
 @app.route("/")
-
-
+def get_news():
+    query= request.args.get("publication")
+    if not query or query.lower() not in RSS_FEEDS:
+        publication="bbc"
+        print("niente, quindi bbc")
+    else:
+        publication=query.lower()
+        print("da url: ", publication)
+    feed = feedparser.parse(RSS_FEEDS[publication])
+    return render_template("index.html",
+     articles=feed['entries'])
   
-@app.route("/<pubblication>")
-def get_news(pubblication="bbc"):
-    feed = feedparser.parse(RSS_FEEDS[pubblication])
-    first_article = feed['entries'][0]
-    #passing dunamic data to my tempalte
-    return render_template("index.html", articles=feed['entries'])
 if __name__ == "__main__":
     app.run(port=5000, debug=True)
