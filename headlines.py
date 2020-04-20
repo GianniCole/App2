@@ -2,6 +2,12 @@ import feedparser
 from flask import Flask
 from flask import render_template
 from flask import request
+import json
+#import urllib2 #it is for python 2, in python 3 use urllib.request
+import urllib
+
+import datetime
+from flask import make_response
 
 app = Flask(__name__)
 RSS_FEEDS = {'bbc': "http://feeds.bbci.co.uk/news/rss.xml",
@@ -9,18 +15,64 @@ RSS_FEEDS = {'bbc': "http://feeds.bbci.co.uk/news/rss.xml",
             'fox':'http://feeds.foxnews.com/foxnews/latest',
             'iol': 'http://www.iol.co.za/cmlink/1.640'}
 
-@app.route("/")
-def get_news():
-    query= request.args.get("publication")
+DEFAULTS={
+        'publication':'bbc',
+        'city': 'Naples,IT'
+        }
+WEATHER_URL = "http://api.openweathermap.org/data/2.5/weather?q={}&units=metric&appid=ebfbaccc758d5794323c413bb9c7bbc1"
+
+
+def get_value_with_fallback(key):
+    if request.args.get(key):
+        return request.args.get(key)
+    if request.cookies.get(key):
+        return request.cookies.get(key)
+    return DEFAULTS[key]
+
+
+@app.route("/", methods=['GET','POST'])
+def home():
+    #get customized headlines, based on user input or default
+    publication = get_value_with_fallback("publication")
+    articles=get_news(publication)
+
+    #get customized weather, based on user input or default
+    city = get_value_with_fallback("city")
+    weather = get_weather (city)
+
+    #save cookie and return template
+    response = make_response(render_template("index.html",
+        articles=articles,
+        weather=weather))
+
+    expires = datetime.datetime.now() + datetime.timedelta(days=365)
+    response.set_cookie("publication", publication, expires=expires)
+    response.set_cookie("city", city, expires=expires)
+    return response
+
+def get_news(query):
     if not query or query.lower() not in RSS_FEEDS:
-        publication="bbc"
-        print("niente, quindi bbc")
+        publication=DEFAULTS['publication']
+        #print("niente, quindi bbc")
     else:
         publication=query.lower()
-        print("da url: ", publication)
+        # print("da url: ", publication)
     feed = feedparser.parse(RSS_FEEDS[publication])
-    return render_template("index.html",
-     articles=feed['entries'])
-  
+    return feed['entries']
+
+ 
+def get_weather(query):
+    query=urllib.parse.quote(query)
+    url= WEATHER_URL.format(query)
+    data=urllib.request.urlopen(url).read()
+    parsed= json.loads(data.decode('utf-8'))
+    weather= None
+    if parsed.get("weather"):
+        weather = {"description":
+                parsed["weather"][0]["description"],
+                "temperature":parsed["main"]["temp"],
+                "city":parsed["name"]
+                }
+    return weather   
 if __name__ == "__main__":
     app.run(port=5000, debug=True)
